@@ -61,6 +61,44 @@ def get_example_question_ai(api_key: str | None) -> str:
 
     return response.choices[0].message.content.strip()
 
+def get_weird_question_ai(api_key: str | None) -> str:
+    """
+    使用 DeepSeek 实时生成一个奇怪的问题，不一定是人生烦恼，但一定很奇怪。
+    """
+    system_prompt = """
+你是一名创意十足的“奇怪问题生成器”, 现在需要去刁难一个人生导师，让他尽量回答不上来。你只管刁难，刁难完之后把刁难的问题发给他，不要有任何解释。
+请每次只输出一条中文的、口语化的、简短的奇怪问题，
+内容要奇怪，不要加序号、解释或任何额外文字。
+    """.strip()
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {
+            "role": "user",
+            "content": "请给我一条奇怪的问题，用第一人称“我”来描述。",
+        },
+    ]
+
+    response = OpenAI(
+        api_key=api_key,
+        base_url="https://api.deepseek.com",
+    ).chat.completions.create(
+        model="deepseek-chat",
+        messages=messages,
+        temperature=0.9,
+        top_p=0.9,
+        n=1,
+        stream=False,
+        max_tokens=128,
+        presence_penalty=0.0,
+        frequency_penalty=0.5,
+        stop=None,
+        logit_bias={},
+        user="life-advisor-example-generator",
+    )
+
+    return response.choices[0].message.content.strip()
+
 
 def get_humorous_advice(
     question: str,
@@ -168,7 +206,7 @@ def main():
             min_value=0.1,
             max_value=1.5,
             value=0.8,
-            step=0.1,
+            step=0.05,
             help="数值越高，回答越有想象力，也越不可预测。",
         )
 
@@ -177,22 +215,29 @@ def main():
     if "question_text" not in st.session_state:
         st.session_state["question_text"] = default_text
 
-    col1, col2 ,col3= st.columns(3)
+    col1, col2 ,col3,col4 = st.columns(4)
     with col1:
         generate_btn = st.button("✨ 生成人生建议")
     with col2:
         random_examples_btn = st.button("🎲 换个示例问题")
     with col3:
         AI_examples_btn = st.button("🎲 AI 生成示例问题")
+    with col4:
+        AI_weird_question_btn = st.button("🎲 AI 生成奇怪问题")
 
-    if AI_examples_btn:
-        api_key_for_example = st.session_state.get("deepseek_api_key", "").strip()
-        try:
-            example_q = get_example_question_ai(api_key_for_example)
-        except Exception as e:
-            st.warning(f"AI 生成示例失败，使用本地示例。错误信息：{e}")
-            example_q = random.choice(EXAMPLE_QUESTIONS)
+    if AI_examples_btn :
+        if not api_key_input:
+            st.error("请先在左侧输入你的 DeepSeek API Key。")
+            return
+        example_q = get_example_question_ai(api_key_input)
         st.session_state["question_text"] = example_q
+
+    if AI_weird_question_btn :
+        if not api_key_input:
+            st.error("请先在左侧输入你的 DeepSeek API Key。")
+            return
+        weird_question = get_weird_question_ai(api_key_input)
+        st.session_state["question_text"] = weird_question
 
     if random_examples_btn:
         example_q = random.choice(EXAMPLE_QUESTIONS)
